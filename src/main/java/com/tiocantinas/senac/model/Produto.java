@@ -60,4 +60,27 @@ public class Produto {
     @Column(nullable = false)
     private UnidadeMedida unidadeMedida;
 
+    public void baixarEstoque(BigDecimal quantidade) {
+        if (quantidade == null || quantidade.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "A quantidade deve ser maior que zero.");
+        }
+
+        if (quantidadeEstoque.compareTo(quantidade) < 0) {
+            throw new IllegalStateException(
+                    "Estoque insuficiente para o produto.");
+        }
+
+        quantidadeEstoque = quantidadeEstoque.subtract(quantidade);
+    }
+
+    public void reporEstoque(BigDecimal quantidade) {
+        if (quantidade == null || quantidade.signum() <= 0) {
+            throw new IllegalArgumentException(
+                    "A quantidade deve ser maior que zero.");
+        }
+
+        quantidadeEstoque = quantidadeEstoque.add(quantidade);
+    }
+
 }
