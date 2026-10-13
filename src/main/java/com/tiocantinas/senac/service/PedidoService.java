@@ -15,6 +15,7 @@ import com.tiocantinas.senac.model.ItemPedido;
 import com.tiocantinas.senac.model.Pedido;
 import com.tiocantinas.senac.model.Produto;
 import com.tiocantinas.senac.model.enums.FormaPagamento;
+import com.tiocantinas.senac.model.enums.StatusPedido;
 import com.tiocantinas.senac.repository.ClienteRepository;
 import com.tiocantinas.senac.repository.PedidoRepository;
 import com.tiocantinas.senac.repository.ProdutoRepository;
@@ -104,10 +105,45 @@ public class PedidoService {
 
         return toResponse(pedido);
     }
-    // definirFormaPagamento() Definir a forma de pagamento
-    // aguardarPagamento() Alterar o estado do pedido
-    // finalizar() Finalizar o pedido e baixar o estoque
-    // cancelar() Cancelar o pedido e devolver o estoque se houve baixa
+
+    @Transactional
+    public PedidoResponse aguardarPagamento(Long pedidoId) {
+        Pedido pedido = buscarEntidadePorId(pedidoId);
+
+        pedido.aguardarPagamento();
+
+        return toResponse(pedido);
+    }
+
+    @Transactional
+    public PedidoResponse finalizar(Long pedidoId) {
+        Pedido pedido = buscarEntidadePorId(pedidoId);
+
+        pedido.finalizarPedido();
+
+        for (ItemPedido item : pedido.getItens()) {
+            item.getProduto().baixarEstoque(item.getQuantidade());
+        }
+
+        return toResponse(pedido);
+    }
+
+    @Transactional
+    public PedidoResponse cancelar(Long pedidoId) {
+        Pedido pedido = buscarEntidadePorId(pedidoId);
+
+        boolean estavaFinalizado = pedido.getStatusPedido() == StatusPedido.FINALIZADO;
+
+        pedido.cancelarPedido();
+
+        if (estavaFinalizado) {
+            for (ItemPedido item : pedido.getItens()) {
+                item.getProduto().reporEstoque(item.getQuantidade());
+            }
+        }
+
+        return toResponse(pedido);
+    }
 
     private PedidoResponse toResponse(Pedido pedido) {
         return new PedidoResponse(
