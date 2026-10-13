@@ -10,9 +10,12 @@ import com.tiocantinas.senac.dto.pedido.PedidoRequest;
 import com.tiocantinas.senac.dto.pedido.PedidoResponse;
 import com.tiocantinas.senac.exception.PedidoNaoEncontradoException;
 import com.tiocantinas.senac.exception.ProdutoNaoEncontradoException;
+import com.tiocantinas.senac.model.Cliente;
 import com.tiocantinas.senac.model.ItemPedido;
 import com.tiocantinas.senac.model.Pedido;
 import com.tiocantinas.senac.model.Produto;
+import com.tiocantinas.senac.model.enums.FormaPagamento;
+import com.tiocantinas.senac.repository.ClienteRepository;
 import com.tiocantinas.senac.repository.PedidoRepository;
 import com.tiocantinas.senac.repository.ProdutoRepository;
 
@@ -24,6 +27,7 @@ public class PedidoService {
 
     private final PedidoRepository pedidoRepository;
     private final ProdutoRepository produtoRepository;
+    private final ClienteRepository clienteRepository;
 
     @Transactional
     public PedidoResponse criar(PedidoRequest request) {
@@ -61,6 +65,7 @@ public class PedidoService {
         return toResponse(pedido);
     }
 
+    @Transactional
     public PedidoResponse removerItem(Long pedidoId, Long itemId) {
         Pedido pedido = pedidoRepository.findById(pedidoId)
                 .orElseThrow(() -> new PedidoNaoEncontradoException(pedidoId));
@@ -75,7 +80,30 @@ public class PedidoService {
 
         return toResponse(pedido);
     }
-    // associarCliente() Associar um cliente ao pedido
+
+    @Transactional
+    public PedidoResponse associarCliente(Long pedidoId, String cpf) {
+        Pedido pedido = buscarEntidadePorId(pedidoId);
+
+        Cliente cliente = clienteRepository.findByCpf(cpf).orElseThrow(() -> new IllegalArgumentException(
+                "Cliente não encontrado."));
+
+        pedido.associarCliente(cliente);
+
+        return toResponse(pedido);
+    }
+
+    @Transactional
+    public PedidoResponse definirFormaPagamento(
+            Long pedidoId,
+            FormaPagamento formaPagamento) {
+
+        Pedido pedido = buscarEntidadePorId(pedidoId);
+
+        pedido.definirFormaPagamento(formaPagamento);
+
+        return toResponse(pedido);
+    }
     // definirFormaPagamento() Definir a forma de pagamento
     // aguardarPagamento() Alterar o estado do pedido
     // finalizar() Finalizar o pedido e baixar o estoque
