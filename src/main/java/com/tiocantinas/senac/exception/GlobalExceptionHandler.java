@@ -56,6 +56,16 @@ public class GlobalExceptionHandler {
                                 exception);
         }
 
+        @ExceptionHandler(PedidoNaoEncontradoException.class)
+        @ResponseStatus(HttpStatus.NOT_FOUND)
+        public ErrorResponse handlePedidoNaoEncontradoException(
+                        PedidoNaoEncontradoException exception) {
+
+                return criarErrorResponse(
+                                HttpStatus.NOT_FOUND,
+                                exception);
+        }
+
         // Trata erros de validação de dados, como campos obrigatórios ou formatos
         // inválidos
         @ExceptionHandler(MethodArgumentNotValidException.class)
