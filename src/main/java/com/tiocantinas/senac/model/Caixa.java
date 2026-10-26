@@ -3,6 +3,7 @@ package com.tiocantinas.senac.model;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import com.tiocantinas.senac.model.enums.StatusCaixa;
@@ -87,6 +88,14 @@ public class Caixa {
             BigDecimal valorAbertura,
             String observacoes) {
 
+        if (responsavelAbertura == null || responsavelAbertura.isBlank()) {
+            throw new IllegalArgumentException("O responsável pela abertura é obrigatório.");
+        }
+
+        if (valorAbertura == null || valorAbertura.signum() < 0) {
+            throw new IllegalArgumentException("O valor de abertura não pode ser nulo ou negativo.");
+        }
+
         this.responsavelAbertura = responsavelAbertura;
         this.valorAbertura = valorAbertura;
         this.observacoes = observacoes;
@@ -94,28 +103,60 @@ public class Caixa {
     }
 
     public void registrarPedido(Pedido pedido) {
-        if (status == StatusCaixa.FECHADO)
-            throw new IllegalStateException("Não é possível registrar um pedido em um caixa fechado.");
+        validarAberto();
+
+        if (pedido == null) {
+            throw new IllegalArgumentException("O pedido é obrigatório.");
+        }
 
         if (pedido.getStatusPedido() != StatusPedido.FINALIZADO)
             throw new IllegalStateException("Somente pedidos finalizados podem ser registrados no caixa.");
 
         if (pedido.getCaixa() != null)
-            throw new IllegalStateException("O pedido já foi registrado neste caixa.");
+            throw new IllegalStateException("O pedido já foi registrado em um caixa.");
 
-        pedidos.add(pedido);
+        if (pedido.getFormaPagamento() == null) {
+            throw new IllegalStateException("A forma de pagamento do pedido é obrigatória.");
+        }
+
         pedido.definirCaixa(this);
+        pedidos.add(pedido);
+        atualizarTotal(pedido, pedido.getPrecoTotal());
     }
 
-    // private void atualizarTotal(Pedido pedido) {
-    // switch (pedido.getFormaPagamento()) {
-    // case DINHEIRO -> totalDinheiro = totalDinheiro.add(pedido.getPrecoTotal());
-    // case DEBITO, CREDITO -> totalCartao =
-    // totalCartao.add(pedido.getPrecoTotal());
-    // case PIX -> totalPix = totalPix.add(pedido.getPrecoTotal());
-    // case A_PRAZO -> totalAPrazo = totalAPrazo.add(pedido.getPrecoTotal());
-    // }
-    // }
+    void estornarPedido(Pedido pedido) {
+        validarAberto();
+
+        if (pedido == null || pedido.getCaixa() == null
+                || (pedido.getCaixa() != this && (id == null || !id.equals(pedido.getCaixa().getId())))) {
+            throw new IllegalArgumentException("O pedido não pertence a este caixa.");
+        }
+
+        if (pedido.getStatusPedido() != StatusPedido.FINALIZADO) {
+            throw new IllegalStateException("Somente pedidos finalizados podem ser estornados.");
+        }
+
+        atualizarTotal(pedido, pedido.getPrecoTotal().negate());
+    }
+
+    private void atualizarTotal(Pedido pedido, BigDecimal valor) {
+        switch (pedido.getFormaPagamento()) {
+            case DINHEIRO -> totalDinheiro = totalDinheiro.add(valor);
+            case DEBITO, CREDITO -> totalCartao = totalCartao.add(valor);
+            case PIX -> totalPix = totalPix.add(valor);
+            case A_PRAZO -> totalAPrazo = totalAPrazo.add(valor);
+        }
+    }
+
+    private void validarAberto() {
+        if (status != StatusCaixa.ABERTO) {
+            throw new IllegalStateException("Esta operação exige um caixa aberto.");
+        }
+    }
+
+    public List<Pedido> getPedidos() {
+        return Collections.unmodifiableList(pedidos);
+    }
 
     public void fechar(BigDecimal valorFechamento) {
         if (status == StatusCaixa.FECHADO)

@@ -147,6 +147,10 @@ public class Pedido {
                     "Um pedido já cancelado não pode ser cancelado novamente.");
         }
 
+        if (statusPedido == StatusPedido.FINALIZADO && caixa != null) {
+            caixa.estornarPedido(this);
+        }
+
         statusPedido = StatusPedido.CANCELADO;
     }
 
