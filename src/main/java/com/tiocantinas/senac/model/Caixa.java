@@ -18,9 +18,6 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -37,45 +34,31 @@ public class Caixa {
     @OneToMany(mappedBy = "caixa")
     private List<Pedido> pedidos = new ArrayList<>();
 
-    @NotBlank
     @Column(nullable = false, length = 100)
     private String responsavelAbertura;
 
-    @NotNull
-    @PositiveOrZero
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal valorAbertura;
 
-    @PositiveOrZero
     @Column(precision = 10, scale = 2)
     private BigDecimal valorFechamento;
 
-    @NotNull
-    @PositiveOrZero
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal totalDinheiro = BigDecimal.ZERO;
 
-    @NotNull
-    @PositiveOrZero
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal totalCartao = BigDecimal.ZERO;
 
-    @NotNull
-    @PositiveOrZero
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal totalPix = BigDecimal.ZERO;
 
-    @NotNull
-    @PositiveOrZero
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAPrazo = BigDecimal.ZERO;
 
-    @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StatusCaixa status = StatusCaixa.ABERTO;
 
-    @NotNull
     @Column(nullable = false)
     private LocalDateTime abertura;
 
@@ -87,14 +70,6 @@ public class Caixa {
     public Caixa(String responsavelAbertura,
             BigDecimal valorAbertura,
             String observacoes) {
-
-        if (responsavelAbertura == null || responsavelAbertura.isBlank()) {
-            throw new IllegalArgumentException("O responsável pela abertura é obrigatório.");
-        }
-
-        if (valorAbertura == null || valorAbertura.signum() < 0) {
-            throw new IllegalArgumentException("O valor de abertura não pode ser nulo ou negativo.");
-        }
 
         this.responsavelAbertura = responsavelAbertura;
         this.valorAbertura = valorAbertura;
