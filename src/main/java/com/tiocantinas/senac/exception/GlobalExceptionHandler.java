@@ -66,6 +66,26 @@ public class GlobalExceptionHandler {
                                 exception);
         }
 
+        @ExceptionHandler(CaixaNaoEncontradoException.class)
+        @ResponseStatus(HttpStatus.NOT_FOUND)
+        public ErrorResponse handleCaixaNaoEncontradoException(
+                        CaixaNaoEncontradoException exception) {
+
+                return criarErrorResponse(
+                                HttpStatus.NOT_FOUND,
+                                exception);
+        }
+
+        @ExceptionHandler(CaixaJaAbertoException.class)
+        @ResponseStatus(HttpStatus.CONFLICT)
+        public ErrorResponse handleCaixaJaAbertoException(
+                        CaixaJaAbertoException exception) {
+
+                return criarErrorResponse(
+                                HttpStatus.CONFLICT,
+                                exception);
+        }
+
         // Trata erros de validação de dados, como campos obrigatórios ou formatos
         // inválidos
         @ExceptionHandler(MethodArgumentNotValidException.class)
