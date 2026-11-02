@@ -11,11 +11,14 @@ import com.tiocantinas.senac.dto.pedido.PedidoRequest;
 import com.tiocantinas.senac.dto.pedido.PedidoResponse;
 import com.tiocantinas.senac.exception.PedidoNaoEncontradoException;
 import com.tiocantinas.senac.exception.ProdutoNaoEncontradoException;
+import com.tiocantinas.senac.model.Caixa;
 import com.tiocantinas.senac.model.Cliente;
 import com.tiocantinas.senac.model.ItemPedido;
 import com.tiocantinas.senac.model.Pedido;
 import com.tiocantinas.senac.model.Produto;
 import com.tiocantinas.senac.model.enums.FormaPagamento;
+import com.tiocantinas.senac.model.enums.StatusCaixa;
+import com.tiocantinas.senac.repository.CaixaRepository;
 import com.tiocantinas.senac.repository.ClienteRepository;
 import com.tiocantinas.senac.repository.PedidoRepository;
 import com.tiocantinas.senac.repository.ProdutoRepository;
@@ -29,6 +32,7 @@ public class PedidoService {
     private final PedidoRepository pedidoRepository;
     private final ProdutoRepository produtoRepository;
     private final ClienteRepository clienteRepository;
+    private final CaixaRepository caixaRepository;
 
     @Transactional
     public PedidoResponse criar(PedidoRequest request) {
@@ -125,8 +129,8 @@ public class PedidoService {
     @Transactional
     public PedidoResponse finalizar(Long pedidoId) {
         Pedido pedido = buscarEntidadePorId(pedidoId);
-
-        pedido.finalizarPedido();
+        Caixa caixaAberto = caixaRepository.findByStatus(StatusCaixa.ABERTO).orElseThrow(
+                () -> new IllegalStateException("Não é possível finalizar o pedido. Nenhum caixa está aberto."));
 
         for (ItemPedido item : pedido.getItens()) {
             if (!item.getProduto().getAtivo()) {
@@ -135,6 +139,9 @@ public class PedidoService {
 
             item.getProduto().baixarEstoque(item.getQuantidade());
         }
+
+        pedido.finalizarPedido();
+        caixaAberto.registrarPedido(pedido);
 
         return toResponse(pedido);
     }
