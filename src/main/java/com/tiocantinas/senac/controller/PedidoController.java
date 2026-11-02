@@ -91,4 +91,9 @@ public class PedidoController {
     public PedidoResponse cancelarPedido(@PathVariable Long id) {
         return pedidoService.cancelar(id);
     }
+
+    @PatchMapping("/{id}/cancelar-pagamento")
+    public PedidoResponse cancelarPagamento(@PathVariable Long id) {
+        return pedidoService.cancelarPagamento(id);
+    }
 }

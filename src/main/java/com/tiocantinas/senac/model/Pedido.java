@@ -138,13 +138,41 @@ public class Pedido {
                     "Somente um pedido aguardando pagamento pode ser finalizado.");
         }
 
+        if (itens.isEmpty()) {
+            throw new IllegalStateException(
+                    "Não é possível finalizar um pedido sem itens.");
+        }
+
+        if (formaPagamento == null) {
+            throw new IllegalStateException(
+                    "A forma de pagamento deve ser informada.");
+        }
+
+        if (formaPagamento == FormaPagamento.A_PRAZO) {
+            validarVendaAPrazo();
+        }
+
         statusPedido = StatusPedido.FINALIZADO;
     }
 
+    public void cancelarPagamento() {
+        if (statusPedido != StatusPedido.AGUARDANDO_PAGAMENTO) {
+            throw new IllegalStateException(
+                    "O pedido não está aguardando pagamento.");
+        }
+
+        statusPedido = StatusPedido.CRIADO;
+    }
+
     public void cancelarPedido() {
+        if (statusPedido == StatusPedido.AGUARDANDO_PAGAMENTO) {
+            throw new IllegalStateException(
+                    "Cancele o pagamento antes de cancelar o pedido.");
+        }
+
         if (statusPedido == StatusPedido.CANCELADO) {
             throw new IllegalStateException(
-                    "Um pedido já cancelado não pode ser cancelado novamente.");
+                    "O pedido já está cancelado.");
         }
 
         if (statusPedido == StatusPedido.FINALIZADO && caixa != null) {
