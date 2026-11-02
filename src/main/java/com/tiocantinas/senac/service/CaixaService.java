@@ -1,10 +1,12 @@
 package com.tiocantinas.senac.service;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,11 +16,13 @@ import com.tiocantinas.senac.dto.caixa.FecharCaixaRequest;
 import com.tiocantinas.senac.exception.CaixaJaAbertoException;
 import com.tiocantinas.senac.exception.CaixaNaoEncontradoException;
 import com.tiocantinas.senac.exception.PedidoNaoEncontradoException;
+import com.tiocantinas.senac.exception.PeriodoInvalidoException;
 import com.tiocantinas.senac.model.Caixa;
 import com.tiocantinas.senac.model.Pedido;
 import com.tiocantinas.senac.model.enums.StatusCaixa;
 import com.tiocantinas.senac.repository.CaixaRepository;
 import com.tiocantinas.senac.repository.PedidoRepository;
+import com.tiocantinas.senac.specification.CaixaSpecification;
 
 import lombok.RequiredArgsConstructor;
 
@@ -80,8 +84,23 @@ public class CaixaService {
     }
 
     @Transactional(readOnly = true)
-    public Page<CaixaResponse> listarFechados(Pageable pageable) {
-        return caixaRepository.findAllByStatus(StatusCaixa.FECHADO, pageable).map(this::toResponse);
+    public Page<CaixaResponse> listarFechados(
+            Pageable pageable,
+            String responsavel,
+            LocalDate dataInicial,
+            LocalDate dataFinal) {
+
+        if (dataInicial != null && dataFinal != null && dataInicial.isAfter(dataFinal)) {
+            throw new PeriodoInvalidoException();
+        }
+
+        Specification<Caixa> filtros = CaixaSpecification.comStatus(StatusCaixa.FECHADO)
+                .and(CaixaSpecification.comResponsavel(responsavel))
+                .and(CaixaSpecification.comDataInicial(dataInicial))
+                .and(CaixaSpecification.comDataFinal(dataFinal));
+
+        return caixaRepository.findAll(filtros, pageable)
+                .map(this::toResponse);
     }
 
     private Caixa buscarCaixaPorEntidadeId(Long id) {

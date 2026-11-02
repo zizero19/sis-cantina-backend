@@ -86,6 +86,16 @@ public class GlobalExceptionHandler {
                                 exception);
         }
 
+        @ExceptionHandler(PeriodoInvalidoException.class)
+        @ResponseStatus(HttpStatus.BAD_REQUEST)
+        public ErrorResponse handlePeriodoInvalidoException(
+                        PeriodoInvalidoException exception) {
+
+                return criarErrorResponse(
+                                HttpStatus.BAD_REQUEST,
+                                exception);
+        }
+
         // Trata erros de validação de dados, como campos obrigatórios ou formatos
         // inválidos
         @ExceptionHandler(MethodArgumentNotValidException.class)

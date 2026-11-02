@@ -1,5 +1,9 @@
 package com.tiocantinas.senac.specification;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Locale;
+
 import org.springframework.data.jpa.domain.Specification;
 
 import com.tiocantinas.senac.model.Caixa;
@@ -18,4 +22,48 @@ public class CaixaSpecification {
                     status);
         };
     }
+
+    public static Specification<Caixa> comResponsavel(String responsavel) {
+        return (root, query, criteriaBuilder) -> {
+            if (responsavel == null || responsavel.isBlank()) {
+                return criteriaBuilder.conjunction();
+            }
+
+            String texto = responsavel.trim()
+                    .toLowerCase(Locale.ROOT)
+                    .replace("!", "!!")
+                    .replace("%", "!%")
+                    .replace("_", "!_");
+
+            return criteriaBuilder.like(
+                    criteriaBuilder.lower(root.<String>get("responsavelAbertura")),
+                    "%" + texto + "%",
+                    '!');
+        };
+    }
+
+    public static Specification<Caixa> comDataInicial(LocalDate dataInicial) {
+        return (root, query, cb) -> {
+            if (dataInicial == null) {
+                return cb.conjunction();
+            }
+
+            return cb.greaterThanOrEqualTo(
+                    root.<LocalDateTime>get("abertura"),
+                    dataInicial.atStartOfDay());
+        };
+    }
+
+    public static Specification<Caixa> comDataFinal(LocalDate dataFinal) {
+        return (root, query, cb) -> {
+            if (dataFinal == null) {
+                return cb.conjunction();
+            }
+
+            return cb.lessThan(
+                    root.<LocalDateTime>get("abertura"),
+                    dataFinal.plusDays(1).atStartOfDay());
+        };
+    }
+
 }
