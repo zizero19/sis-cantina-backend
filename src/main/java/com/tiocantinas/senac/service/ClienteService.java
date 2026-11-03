@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.tiocantinas.senac.dto.cliente.ClienteRequest;
 import com.tiocantinas.senac.dto.cliente.ClienteResponse;
 import com.tiocantinas.senac.exception.ClienteNaoEncontradoException;
+import com.tiocantinas.senac.exception.SetorNaoEncontradoException;
 import com.tiocantinas.senac.model.Cliente;
 import com.tiocantinas.senac.model.Setor;
 import com.tiocantinas.senac.repository.ClienteRepository;
@@ -70,7 +71,7 @@ public class ClienteService {
 
     private void atualizarDados(Cliente cliente, ClienteRequest request) {
         Setor setor = setorRepository.findById(request.setorId())
-                .orElseThrow(() -> new RuntimeException("Setor não encontrado."));
+                .orElseThrow(() -> new SetorNaoEncontradoException(request.setorId()));
 
         cliente.setNome(request.nome());
         cliente.setCpf(request.cpf());
