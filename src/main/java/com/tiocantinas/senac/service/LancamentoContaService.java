@@ -1,9 +1,13 @@
 package com.tiocantinas.senac.service;
 
+import java.math.BigDecimal;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.tiocantinas.senac.dto.lancamento_conta.ContaClienteResponse;
 import com.tiocantinas.senac.dto.lancamento_conta.LancamentoContaResponse;
+import com.tiocantinas.senac.dto.lancamento_conta.RegistrarPagamentoRequest;
 import com.tiocantinas.senac.exception.ClienteNaoEncontradoException;
 import com.tiocantinas.senac.exception.PedidoNaoEncontradoException;
 import com.tiocantinas.senac.model.Cliente;
@@ -52,7 +56,8 @@ public class LancamentoContaService {
 
         if (cliente.getLimiteCredito().compareTo(pedido.getPrecoTotal()) < 0) {
             throw new IllegalStateException(
-                    "Cliente com o id " + cliente.getId() + " não possui limite de crédito suficiente!");
+                    "Cliente com o id " + cliente.getId()
+                            + " não possui limite de crédito suficiente!");
         }
 
         if (cliente.getLancamentos().stream()
@@ -60,35 +65,116 @@ public class LancamentoContaService {
                         && x.getPedido() != null
                         && x.getPedido().getId().equals(pedidoId))) {
             throw new IllegalStateException(
-                    "Cliente com o id " + cliente.getId() + " já possui um lançamento de débito para o pedido com o id "
+                    "Cliente com o id " + cliente.getId()
+                            + " já possui um lançamento de débito para o pedido com o id "
                             + pedidoId + "!");
         }
 
-        LancamentoConta lancamento = new LancamentoConta(
+        LancamentoConta debito = new LancamentoConta(
                 cliente,
                 pedido,
                 TipoLancamento.DEBITO,
                 pedido.getPrecoTotal(),
                 "Débito referente ao pedido com o id " + pedidoId);
 
-        LancamentoConta lancamentoSalvo = lancamentoContaRepository.save(lancamento);
+        LancamentoConta lancamentoSalvo = lancamentoContaRepository.save(debito);
 
         cliente.getLancamentos().add(lancamentoSalvo);
 
         return toResponse(lancamentoSalvo);
     }
 
-    // public LancamentoContaResponse registrarPagamento(Long clienteId,
-    // RegistrarPagamentoRequest request);
-    // public LancamentoContaResponse estornarDebitoDoPedido(Long pedidoId);
-    // public LancamentoContaResponse buscarPorId(Long lancamentoId);
-    // public ContaClienteResponse consultarConta(Long clienteId);
+    @Transactional
+    public LancamentoContaResponse registrarPagamento(Long clienteId, RegistrarPagamentoRequest request) {
+        Cliente cliente = clienteRepository.findById(clienteId)
+                .orElseThrow(() -> new ClienteNaoEncontradoException(clienteId));
+
+        BigDecimal saldoDevedor = cliente.calcularSaldoDevedor();
+
+        if (request.valor().compareTo(saldoDevedor) > 0) {
+            throw new IllegalStateException("O valor do pagamento não pode ser maior que a dívida do cliente");
+        }
+
+        LancamentoConta credito = new LancamentoConta(
+                cliente,
+                null,
+                TipoLancamento.CREDITO,
+                request.valor(),
+                request.descricao());
+
+        cliente.getLancamentos().add(credito);
+
+        LancamentoConta lancamentoConta = lancamentoContaRepository.save(credito);
+
+        return toResponse(lancamentoConta);
+    }
+
+    @Transactional
+    public LancamentoContaResponse estornarDebitoDoPedido(Long pedidoId) {
+        Pedido pedidoCancelado = pedidoRepository.findById(pedidoId)
+                .orElseThrow(() -> new PedidoNaoEncontradoException(pedidoId));
+
+        if (pedidoCancelado.getStatusPedido() != StatusPedido.CANCELADO) {
+            throw new IllegalStateException("Somente pedidos cancelados podem ter o débito estornado");
+        }
+
+        LancamentoConta debito = lancamentoContaRepository
+                .findByPedidoIdAndTipoLancamento(pedidoId, TipoLancamento.DEBITO)
+                .orElseThrow(() -> new IllegalStateException("Este pedido não possui débito para estornar."));
+
+        if (lancamentoContaRepository.findByPedidoIdAndTipoLancamento(pedidoId, TipoLancamento.CREDITO).isPresent()) {
+            throw new IllegalStateException("O débito deste pedido já foi estornado");
+        }
+
+        Cliente cliente = debito.getCliente();
+
+        // TODO: analisar possibilidade de credito positivo para o cliente caso o
+        // pagamento estorne e devolva saldo positivo de credito
+        if (debito.getValor().compareTo(cliente.calcularSaldoDevedor()) > 0) {
+            throw new IllegalStateException(
+                    "O estorno geraria saldo a favor do cliente. "
+                            + "É necessário definir o tratamento desse valor.");
+        }
+
+        LancamentoConta estorno = new LancamentoConta(
+                cliente,
+                pedidoCancelado,
+                TipoLancamento.CREDITO,
+                debito.getValor(),
+                "Estorno do débito referente ao pedido com o id " + pedidoId);
+
+        LancamentoConta estornoSalvo = lancamentoContaRepository.save(estorno);
+
+        cliente.getLancamentos().add(estornoSalvo);
+
+        return toResponse(estornoSalvo);
+    }
+
+    public LancamentoContaResponse buscarPorId(Long lancamentoId) {
+        return toResponse(buscarEntidadePorId(lancamentoId));
+    }
+
+    @Transactional(readOnly = true)
+    public ContaClienteResponse consultarConta(Long clienteId) {
+        Cliente cliente = clienteRepository.findById(clienteId)
+                .orElseThrow(() -> new IllegalArgumentException("Cliente com o id " + clienteId + " não encontrado."));
+
+        return new ContaClienteResponse(
+                cliente.getId(),
+                cliente.getNome(),
+                cliente.getCpf(),
+                cliente.getLimiteCredito(),
+                cliente.calcularSaldoDevedor(),
+                cliente.calcularCreditoDisponivel());
+    }
+
     // public Page<LancamentoContaResponse> listarPorCliente(Long clienteId,
     // Pageable pageable);
 
     private LancamentoConta buscarEntidadePorId(Long id) {
         return lancamentoContaRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Lancamento Conta com o id " + id + " não encontrado!"));
+                .orElseThrow(() -> new RuntimeException(
+                        "Lancamento Conta com o id " + id + " não encontrado."));
     }
 
     private LancamentoContaResponse toResponse(LancamentoConta lancamentoConta) {
