@@ -1,7 +1,11 @@
 package com.tiocantinas.senac.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -10,6 +14,7 @@ import com.tiocantinas.senac.dto.lancamento_conta.LancamentoContaResponse;
 import com.tiocantinas.senac.dto.lancamento_conta.RegistrarPagamentoRequest;
 import com.tiocantinas.senac.exception.ClienteNaoEncontradoException;
 import com.tiocantinas.senac.exception.PedidoNaoEncontradoException;
+import com.tiocantinas.senac.exception.PeriodoInvalidoException;
 import com.tiocantinas.senac.model.Cliente;
 import com.tiocantinas.senac.model.LancamentoConta;
 import com.tiocantinas.senac.model.Pedido;
@@ -19,6 +24,7 @@ import com.tiocantinas.senac.model.enums.TipoLancamento;
 import com.tiocantinas.senac.repository.ClienteRepository;
 import com.tiocantinas.senac.repository.LancamentoContaRepository;
 import com.tiocantinas.senac.repository.PedidoRepository;
+import com.tiocantinas.senac.specification.LancamentoContaSpecification;
 
 import lombok.RequiredArgsConstructor;
 
@@ -92,7 +98,8 @@ public class LancamentoContaService {
         BigDecimal saldoDevedor = cliente.calcularSaldoDevedor();
 
         if (request.valor().compareTo(saldoDevedor) > 0) {
-            throw new IllegalStateException("O valor do pagamento não pode ser maior que a dívida do cliente");
+            throw new IllegalStateException(
+                    "O valor do pagamento não pode ser maior que a dívida do cliente");
         }
 
         LancamentoConta credito = new LancamentoConta(
@@ -120,9 +127,11 @@ public class LancamentoContaService {
 
         LancamentoConta debito = lancamentoContaRepository
                 .findByPedidoIdAndTipoLancamento(pedidoId, TipoLancamento.DEBITO)
-                .orElseThrow(() -> new IllegalStateException("Este pedido não possui débito para estornar."));
+                .orElseThrow(() -> new IllegalStateException(
+                        "Este pedido não possui débito para estornar."));
 
-        if (lancamentoContaRepository.findByPedidoIdAndTipoLancamento(pedidoId, TipoLancamento.CREDITO).isPresent()) {
+        if (lancamentoContaRepository.findByPedidoIdAndTipoLancamento(pedidoId, TipoLancamento.CREDITO)
+                .isPresent()) {
             throw new IllegalStateException("O débito deste pedido já foi estornado");
         }
 
@@ -157,7 +166,8 @@ public class LancamentoContaService {
     @Transactional(readOnly = true)
     public ContaClienteResponse consultarConta(Long clienteId) {
         Cliente cliente = clienteRepository.findById(clienteId)
-                .orElseThrow(() -> new IllegalArgumentException("Cliente com o id " + clienteId + " não encontrado."));
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Cliente com o id " + clienteId + " não encontrado."));
 
         return new ContaClienteResponse(
                 cliente.getId(),
@@ -168,8 +178,36 @@ public class LancamentoContaService {
                 cliente.calcularCreditoDisponivel());
     }
 
-    // public Page<LancamentoContaResponse> listarPorCliente(Long clienteId,
-    // Pageable pageable);
+    @Transactional(readOnly = true)
+    public Page<LancamentoContaResponse> listarPorCliente(
+            Long clienteId,
+            Pageable pageable,
+            TipoLancamento tipoLancamento,
+            LocalDate dataInicial,
+            LocalDate dataFinal) {
+
+        if (clienteId == null) {
+            throw new IllegalArgumentException("O cliente é obrigatório para consultar o extrato.");
+        }
+
+        if (!clienteRepository.existsById(clienteId)) {
+            throw new ClienteNaoEncontradoException(clienteId);
+        }
+
+        if (dataInicial != null
+                && dataFinal != null
+                && dataInicial.isAfter(dataFinal)) {
+            throw new PeriodoInvalidoException();
+        }
+
+        Specification<LancamentoConta> filtros = LancamentoContaSpecification.comCliente(clienteId)
+                .and(LancamentoContaSpecification.comTipo(tipoLancamento))
+                .and(LancamentoContaSpecification.comDataInicial(dataInicial))
+                .and(LancamentoContaSpecification.comDataFinal(dataFinal));
+
+        return lancamentoContaRepository.findAll(filtros, pageable)
+                .map(this::toResponse);
+    }
 
     private LancamentoConta buscarEntidadePorId(Long id) {
         return lancamentoContaRepository.findById(id)
